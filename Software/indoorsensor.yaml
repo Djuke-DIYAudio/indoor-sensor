@@ -1,0 +1,158 @@
+# Configration file for ESPhome for the Djuke indoorsensor
+#
+# From the command line, it can be run with:
+#
+# `esphome run indoorsensor`
+#
+# Using substitutions (see below), some parameters can be configured from the command line
+#
+# `esphome -s devicename indoor-werkkamer -s wifi_ssid SSID -s wifi_password PASSWD run indoorsensor.yaml`
+#
+
+# Substitutions allow keeping parameters organized
+# and they can be adjusted from the command line
+substitutions:
+    devicename: "indoor"
+    wifi_ssid: "SSID"
+    wifi_password: "Password"
+    bme280_temperature_offset: "-10"
+    bme280_pressure_offset: "+0"
+    bme280_humidity_offset: "+26"
+    mhz19_temperature_offset: "-6"
+    
+# Device and board name
+esphome:
+  name: ${devicename}
+
+esp8266:
+  board: d1_mini
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  password: ""
+
+ota:
+  password: ""
+
+# WIFI settings
+wifi:
+  ssid: ${wifi_ssid}
+  password: ${wifi_password}
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Indoor sensor Fallback Hotspot"
+    password: "Pass1234"
+
+captive_portal:
+
+# Digital outputs for LEDs
+output:
+  - platform: gpio
+    pin: GPIO14
+    id: led_red
+
+  - platform: gpio
+    pin: GPIO16
+    id: led_green
+    
+# Bus configuration for UART and I2C
+uart:
+  tx_pin: GPIO0
+  rx_pin: GPIO2
+  baud_rate: 9600
+
+i2c:
+  sda: GPIO4
+  scl: GPIO5
+  scan: true
+
+# Sensor configuration
+sensor:
+  - platform: mhz19
+    co2:
+      name: "CO2 value"
+      id: "co2"
+      on_value_range:
+        - above: 1400
+          then:
+            - output.turn_on: led_red
+            - output.turn_off: led_green
+        - below: 1400
+          above: 800
+          then:
+            - output.turn_on: led_red
+            - output.turn_on: led_green
+        - below: 800
+          then:
+            - output.turn_on: led_green
+            - output.turn_off: led_red
+    temperature:
+      name: "MHZ19 Temperature"
+      filters:
+        - offset: ${mhz19_temperature_offset}
+    update_interval: 5s
+    automatic_baseline_calibration: false
+
+  - platform: bme280
+    temperature:
+      name: "BME280 Temperature"
+      id: "temp"
+      oversampling: 1x
+      unit_of_measurement: "°C"
+      icon: "mdi:water-percent"
+      device_class: "temperature"
+      state_class: "measurement"
+      filters:
+        - offset: ${bme280_temperature_offset}
+    pressure:
+      name: "BME280 Pressure"
+      id: "pressure"
+      filters:
+        - offset: ${bme280_pressure_offset}
+    humidity:
+      name: "BME280 Humidity"
+      id: "humidity"
+      filters:
+        - offset: ${bme280_humidity_offset}
+    address: 0x76
+    update_interval: 5s
+
+# Define fonts to be used on the display
+font:
+  - file: "gfonts://Roboto"
+    id: my_font
+    size: 32
+  - file: "gfonts://Roboto"
+    id: my_font_small
+    size: 16
+
+# Show bare-minimum auto-ranged graph
+graph:
+  - id: co2_graph
+    border: false
+    sensor: co2
+    line_type: SOLID
+    line_thickness: 2
+    y_grid: 1000
+    duration: 3hours
+    width: 100
+    height: 16
+    min_value: 400
+    max_value: 2000
+
+# Display configutation
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    lambda: |-
+      it.printf(it.get_width(), 0, id(my_font), TextAlign::TOP_RIGHT, "%.1f°C", id(temp).state);
+      it.printf(0, 32, id(my_font_small), "%.0f", id(co2).state);
+      it.graph(28, 32, id(co2_graph));
+      it.printf(0, 48, id(my_font_small), "%.0f%%", id(humidity).state, id(pressure).state);
+      it.printf(it.get_width(), 48, id(my_font_small), TextAlign::TOP_RIGHT, "%.0fhPa", id(pressure).state);
+
