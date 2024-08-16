@@ -15,10 +15,10 @@ substitutions:
     devicename: "indoor"
     wifi_ssid: "SSID"
     wifi_password: "Password"
-    bme280_temperature_offset: "-10"
+    bme280_temperature_offset: "-8.0"
     bme280_pressure_offset: "+0"
     bme280_humidity_offset: "+26"
-    mhz19_temperature_offset: "-6"
+    mhz19_temperature_offset: "-5"
     
 # Device and board name
 esphome:
